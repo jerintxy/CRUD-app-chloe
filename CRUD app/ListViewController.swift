@@ -16,6 +16,10 @@ class ListViewController: UIViewController, UITableViewDataSource, UITableViewDe
 //        Excuse(activity: "Training", reason: .lazy, validity: 1)
 //    ]
     
+    private let store = ExcuseDataStore.shared
+    
+    
+    
     private var excuses: [Excuse] = [
         Excuse(activity: "Gym", reason: .weather, validity: 3, date: Date()),
         Excuse(activity: "Finish report", reason: .other, validity: 2, date: Date()),
@@ -32,8 +36,18 @@ class ListViewController: UIViewController, UITableViewDataSource, UITableViewDe
         navigationController?.navigationBar.prefersLargeTitles = true
         navigationItem.largeTitleDisplayMode = .always
         
+        excuses = store.loadExcuses()
+        
         setupNavigationBar()
         setupTableView()
+        
+        // from notion:
+        // a way to save on app close
+        NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification,
+        object: nil, queue: .main) { [weak self] _ in
+                guard let self else { return }
+                try? self.store.saveExcuses(self.excuses)
+        }
         
     }
     
@@ -100,21 +114,46 @@ class ListViewController: UIViewController, UITableViewDataSource, UITableViewDe
         present(navController, animated: true)
     }
     
+
+    
     // MARK: - ExcuseFormViewControllerDelegate
+
     // Called by the form after adding.
     func didAddExcuse(_ excuse: Excuse) {
-        excuses.append(excuse)    // 1. add to the data
-        tableView.reloadData()    // 2. tell the table to redraw (it asks numberOfRows/cellForRow again)
-    }
-    
-    // added this!
-    func didUpdateExcuse(_ excuse: Excuse) {
-        // Find the excuse by ID and replace it in the array
-        if let index = excuses.firstIndex(where: { $0.id == excuse.id }) {
-            excuses[index] = excuse  // replace old struct with new one
-            tableView.reloadData()
+        // 1. Add the single new item to your Home screen's local array
+        excuses.append(excuse)
+        
+        // 2. Tell the table to redraw itself with the new data
+        tableView.reloadData()
+        
+        // ExcuseDataStore.shared.saveExcuses(excuses)
+        // 3. Save the entire updated array using your shortcut property 'store'
+        do {
+            try store.saveExcuses(excuses)
+        } catch {
+            print("Could not save list after adding: \(error.localizedDescription)")
         }
     }
+
+    // Called by the form/detail after editing.
+    func didUpdateExcuse(_ excuse: Excuse) {
+        // 1. Find the excuse by ID and replace it in your local array
+        if let index = excuses.firstIndex(where: { $0.id == excuse.id }) {
+            excuses[index] = excuse  // replace old struct with new one
+            
+            // 2. Tell the table to redraw itself
+            tableView.reloadData()
+            
+            // ExcuseDataStore.shared.saveExcuses(excuses)
+            // 3. Save the entire updated array using your shortcut property 'store'
+            do {
+                try store.saveExcuses(excuses)
+            } catch {
+                print("Could not save list after updating: \(error.localizedDescription)")
+            }
+        }
+    }
+
     
     
     

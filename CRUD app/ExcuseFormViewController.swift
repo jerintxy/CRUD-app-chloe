@@ -141,8 +141,10 @@ class ExcuseFormViewController: UITableViewController, UIPickerViewDataSource, U
         
         /*
         • The Problem: You couldn't write excuse.activity = activity anymore. The compiler said it was an immutable constant.
-        • The Reason: With a class, you are passing around a pointer to a single shared box. You can reach inside that box and change things even if the pointer itself is constant (let). With a struct, the object is the value. If you capture a struct using if let excuse = excuse, Swift locks down the entire thing as a constant copy. You cannot change a value type unless it is explicitly marked with var.
-        • The Fix: We had to rebuild a fresh instance of the struct (let updatedExcuse = Excuse(...)) containing the new information and pass that along instead of altering the old one in place.
+        
+         • The Reason: With a class, you are passing around a pointer to a single shared box. You can reach inside that box and change things even if the pointer itself is constant (let). With a struct, the object is the value. If you capture a struct using if let excuse = excuse, Swift locks down the entire thing as a constant copy. You cannot change a value type unless it is explicitly marked with var.
+        
+         • The Fix: We had to rebuild a fresh instance of the struct (let updatedExcuse = Excuse(...)) containing the new information and pass that along instead of altering the old one in place.
          */
         
         if let excuse = excuse {
@@ -153,9 +155,13 @@ class ExcuseFormViewController: UITableViewController, UIPickerViewDataSource, U
                 validity: validity,
                 date: date
             )
+            // Hey! I am completely done editing, and here is the final, updated version of the data.
             delegate?.didUpdateExcuse(updatedExcuse)
             
+            
             /*
+             this is the old version, when using a class
+             
             // EDITING: change the existing object's values directly
             // its a class so the list and detail screens see the change too
             excuse.activity = activity
