@@ -16,18 +16,36 @@ enum Reason: String, CaseIterable {
 }
 
 
-class Excuse {
+struct Excuse {
+    let id: UUID
     var activity: String //what activity did u skip
     var reason: Reason //why, picked from enum
     var validity: Int //how legit is that excuse
     var date: Date //when it happened
     
-    //initialiser 
-    init(activity: String, reason: Reason, validity: Int, date: Date = Date()) {
+    init(id: UUID = UUID(), activity: String, reason: Reason, validity: Int, date: Date) {
+        self.id = id
         self.activity = activity
         self.reason = reason
         self.validity = validity
         self.date = date
     }
     
+    /*
+     class Excuse {
+     var activity: String //what activity did u skip
+     var reason: Reason //why, picked from enum
+     var validity: Int //how legit is that excuse
+     var date: Date //when it happened
+     
+     //initialiser
+     init(activity: String, reason: Reason, validity: Int, date: Date = Date()) {
+     self.activity = activity
+     self.reason = reason
+     self.validity = validity
+     self.date = date
+     }
+     
+     }
+     */
 }

@@ -138,14 +138,33 @@ class ExcuseFormViewController: UITableViewController, UIPickerViewDataSource, U
         let validity = Int(validityStepper.value)
         let date = datePicker.date
         
+        
+        /*
+        • The Problem: You couldn't write excuse.activity = activity anymore. The compiler said it was an immutable constant.
+        • The Reason: With a class, you are passing around a pointer to a single shared box. You can reach inside that box and change things even if the pointer itself is constant (let). With a struct, the object is the value. If you capture a struct using if let excuse = excuse, Swift locks down the entire thing as a constant copy. You cannot change a value type unless it is explicitly marked with var.
+        • The Fix: We had to rebuild a fresh instance of the struct (let updatedExcuse = Excuse(...)) containing the new information and pass that along instead of altering the old one in place.
+         */
+        
         if let excuse = excuse {
+            let updatedExcuse = Excuse(
+                id: excuse.id, // Keep the same ID!
+                activity: activity,
+                reason: reason,
+                validity: validity,
+                date: date
+            )
+            delegate?.didUpdateExcuse(updatedExcuse)
+            
+            /*
             // EDITING: change the existing object's values directly
             // its a class so the list and detail screens see the change too
             excuse.activity = activity
             excuse.reason = reason
             excuse.validity = validity
             excuse.date = date
+             
             delegate?.didUpdateExcuse(excuse)   // "?" = only if a delegate exists
+             */
         } else {
             // ADDING: build a brand new excuse and hand it over.
             let newExcuse = Excuse(activity: activity, reason: reason, validity: validity, date: date)

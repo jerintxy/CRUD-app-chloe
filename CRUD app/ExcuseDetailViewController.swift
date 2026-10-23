@@ -7,10 +7,13 @@
 
 import UIKit
 
-class ExcuseDetailViewController: UITableViewController, ExcuseFormViewControllerDelegate {
 
+
+class ExcuseDetailViewController: UITableViewController, ExcuseFormViewControllerDelegate {
+    weak var delegate: ExcuseFormViewControllerDelegate?
+    
     //MARK: - properties
-    private let excuse: Excuse
+    private var excuse: Excuse
     
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -56,7 +59,9 @@ class ExcuseDetailViewController: UITableViewController, ExcuseFormViewControlle
     // Called by the form after editing. The excuse object is already changed,
     // so we just redraw this screen to show the new values.
     func didUpdateExcuse(_ excuse: Excuse) {
-        tableView.reloadData()
+        self.excuse = excuse   // 1. Must reassign the stored property first!
+        tableView.reloadData()  // 2. Then reload the table to show the new values
+        delegate?.didUpdateExcuse(excuse) 
     }
     
     // MARK: - Table view data source

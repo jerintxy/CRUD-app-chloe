@@ -9,11 +9,18 @@ import UIKit
 
 class ListViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, ExcuseFormViewControllerDelegate{
 
+//    private var excuses: [Excuse] = [
+//        Excuse(activity: "Gym", reason: .weather, validity: 3),
+//        Excuse(activity: "Finish report", reason: .other, validity: 2),
+//        Excuse(activity: "Run", reason: .tired, validity: 7),
+//        Excuse(activity: "Training", reason: .lazy, validity: 1)
+//    ]
+    
     private var excuses: [Excuse] = [
-        Excuse(activity: "Gym", reason: .weather, validity: 3),
-        Excuse(activity: "Finish report", reason: .other, validity: 2),
-        Excuse(activity: "Run", reason: .tired, validity: 7),
-        Excuse(activity: "Training", reason: .lazy, validity: 1)
+        Excuse(activity: "Gym", reason: .weather, validity: 3, date: Date()),
+        Excuse(activity: "Finish report", reason: .other, validity: 2, date: Date()),
+        Excuse(activity: "Run", reason: .tired, validity: 7, date: Date()),
+        Excuse(activity: "Training", reason: .lazy, validity: 1, date: Date())
     ]
     
     private let tableView = UITableView()
@@ -100,6 +107,18 @@ class ListViewController: UIViewController, UITableViewDataSource, UITableViewDe
         tableView.reloadData()    // 2. tell the table to redraw (it asks numberOfRows/cellForRow again)
     }
     
+    // added this!
+    func didUpdateExcuse(_ excuse: Excuse) {
+        // Find the excuse by ID and replace it in the array
+        if let index = excuses.firstIndex(where: { $0.id == excuse.id }) {
+            excuses[index] = excuse  // replace old struct with new one
+            tableView.reloadData()
+        }
+    }
+    
+    
+    
+    
     
     // MARK: - UITableViewDataSource
     //implement numberOfRowsInSection
@@ -139,16 +158,29 @@ class ListViewController: UIViewController, UITableViewDataSource, UITableViewDe
     
     //MARK: - UITableViewDelegate
     // Called when a row is tapped
+//    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+//        tableView.deselectRow(at: indexPath, animated: true)   // remove the grey highlight
+//        
+//        // 1. Find which excuse was tapped.
+//        let selectedExcuse = excuses[indexPath.row]
+//        
+//        // 2. Create a detail screen and hand it that excuse.
+//        let detailVC = ExcuseDetailViewController(excuse: selectedExcuse)
+//        
+//        // 3. Push it onto the navigation stack (slides in, with a back button for free).
+//        navigationController?.pushViewController(detailVC, animated: true)
+//    }
+    
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        tableView.deselectRow(at: indexPath, animated: true)   // remove the grey highlight
+        tableView.deselectRow(at: indexPath, animated: true)
         
-        // 1. Find which excuse was tapped.
-        let selectedExcuse = excuses[indexPath.row]
+        // instantiate the detail screen with your custom initialiser
+        let detailVC = ExcuseDetailViewController(excuse: excuses[indexPath.row])
         
-        // 2. Create a detail screen and hand it that excuse.
-        let detailVC = ExcuseDetailViewController(excuse: selectedExcuse)
+        // tell the detail screen that the Home Screen is listening!
+        detailVC.delegate = self
         
-        // 3. Push it onto the navigation stack (slides in, with a back button for free).
+        // push it onto your programmatic navigation stack
         navigationController?.pushViewController(detailVC, animated: true)
     }
     
