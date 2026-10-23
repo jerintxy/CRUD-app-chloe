@@ -7,7 +7,7 @@
 import Foundation
 
 //CaseIterable lets us ask for ALL cases as a list later (Reason.allCases), which we'll need to fill the picker on the form screen
-enum Reason: String, CaseIterable, Codable  {
+nonisolated enum Reason: String, CaseIterable, Codable  {
     case tired = "Slept at 4am"
     case busy = "No time lor"
     case lazy = "Lazy"
@@ -16,7 +16,7 @@ enum Reason: String, CaseIterable, Codable  {
 }
 
 
-struct Excuse: Codable {
+nonisolated struct Excuse: Codable, Hashable {
     let id: UUID
     var activity: String //what activity did u skip
     var reason: Reason //why, picked from enum

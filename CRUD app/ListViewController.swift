@@ -7,28 +7,28 @@
 
 import UIKit
 
-class ListViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, ExcuseFormViewControllerDelegate{
+// MARK: - Modern Diffable Data Source Subclass
+class ExcuseDataSource: UITableViewDiffableDataSource<Reason, Excuse> {
+    override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        // find the Reason enum for this section slot
+        let reasonType = snapshot().sectionIdentifiers[section]
+        return reasonType.rawValue.capitalized
+    }
+}
 
-//    private var excuses: [Excuse] = [
-//        Excuse(activity: "Gym", reason: .weather, validity: 3),
-//        Excuse(activity: "Finish report", reason: .other, validity: 2),
-//        Excuse(activity: "Run", reason: .tired, validity: 7),
-//        Excuse(activity: "Training", reason: .lazy, validity: 1)
-//    ]
-    
+// MARK: - Main View Controller
+class ListViewController: UIViewController {
+
+    // MARK: - Properties
+    private var dataSource: ExcuseDataSource!
     private let store = ExcuseDataStore.shared
     
-    
-    
-    private var excuses: [Excuse] = [
-        Excuse(activity: "Gym", reason: .weather, validity: 3, date: Date()),
-        Excuse(activity: "Finish report", reason: .other, validity: 2, date: Date()),
-        Excuse(activity: "Run", reason: .tired, validity: 7, date: Date()),
-        Excuse(activity: "Training", reason: .lazy, validity: 1, date: Date())
-    ]
+    // master copy used to build screen updates
+    private var excuses: [Excuse] = []
     
     private let tableView = UITableView()
     
+    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
@@ -36,98 +36,110 @@ class ListViewController: UIViewController, UITableViewDataSource, UITableViewDe
         navigationController?.navigationBar.prefersLargeTitles = true
         navigationItem.largeTitleDisplayMode = .always
         
+        // Load data from storage file on launch
         excuses = store.loadExcuses()
         
         setupNavigationBar()
         setupTableView()
         
-        // from notion:
-        // a way to save on app close
-        NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification,
-        object: nil, queue: .main) { [weak self] _ in
-                guard let self else { return }
-                try? self.store.saveExcuses(self.excuses)
+        // Save on app close notification setup
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            try? self.store.saveExcuses(self.excuses)
         }
         
+        // Initialize the custom Diffable Data Source
+        dataSource = ExcuseDataSource(tableView: tableView) { tableView, indexPath, item in
+            guard let cell = tableView.dequeueReusableCell(
+                withIdentifier: ExcuseTableViewCell.identifier,
+                for: indexPath
+            ) as? ExcuseTableViewCell else {
+                return UITableViewCell()
+            }
+            cell.configure(with: item)
+            return cell
+        }
+
+        dataSource.defaultRowAnimation = .fade
+        tableView.dataSource = dataSource
+        tableView.delegate = self
+        
+        // Display initial data state immediately
+        applySnapshot(animatingDifferences: false)
     }
     
-    //fix the refresh bug
-    //runs every time this screen is about to appear on the screen
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        tableView.reloadData()
+        // Refresh UI state whenever screen returns to view focus
+        applySnapshot(animatingDifferences: false)
     }
     
-    
-    //MARK: - setup
-    //adds the + button on the top right
-    private func setupNavigationBar(){
+    // MARK: - Layout & Setup
+    private func setupNavigationBar() {
         let addButton = UIBarButtonItem(
             barButtonSystemItem: .add,
             target: self,
             action: #selector(addButtonTapped)
         )
-        //color the + icon
         addButton.tintColor = .systemBlue
-        addButton.style = .prominent
-        //put it on the top right
         navigationItem.rightBarButtonItem = addButton
     }
     
-    
-    private func setupTableView(){
-        //tells the table that "im ur data source and delegate, ask me"
-        tableView.delegate = self
-        tableView.dataSource = self
-        
-        //register the cell so the table knows which class to use for rows
+    private func setupTableView() {
         tableView.register(ExcuseTableViewCell.self, forCellReuseIdentifier: ExcuseTableViewCell.identifier)
-        
-        // Let rows size themselves to fit their content.
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 70
         
-        //add table to screen, make it fill the whole view
         view.addSubview(tableView)
         tableView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: view.topAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
-        
-    
     }
     
-    //MARK: - Actions
-    @objc private func addButtonTapped(){
-        // No excuse passed -> the form is in "add" mode
+    // MARK: - Snapshot Update Mechanism
+    private func applySnapshot(animatingDifferences: Bool = true) {
+        var snapshot = NSDiffableDataSourceSnapshot<Reason, Excuse>()
+
+        // Group array items by their enum types
+        let grouped = Dictionary(grouping: excuses, by: { $0.reason })
+
+        // Sort sections alphabetically based on raw values
+        let sortedTypes = grouped.keys.sorted(by: { $0.rawValue < $1.rawValue })
+
+        // Build snapshot - rebuild modern table sections and rows
+        snapshot.appendSections(sortedTypes)
+        for type in sortedTypes {
+            snapshot.appendItems(grouped[type]!, toSection: type)
+        }
+
+        // Safely apply calculations to UI layout
+        dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
+    }
+    
+    // MARK: - Actions
+    @objc private func addButtonTapped() {
         let formVC = ExcuseFormViewController()
-        formVC.delegate = self
-        
-        // Wrap in a navigation controller so the form gets its own top bar (Cancel/Save)
+        formVC.delegate = self // Now valid due to extension conformance lower down
         let navController = UINavigationController(rootViewController: formVC)
-        
-        // slide up modally over the current screen
         present(navController, animated: true)
     }
-    
+}
 
-    
-    // MARK: - ExcuseFormViewControllerDelegate
+// MARK: - ExcuseFormViewControllerDelegate Conformance
+extension ListViewController: ExcuseFormViewControllerDelegate {
 
-    // Called by the form after adding.
     func didAddExcuse(_ excuse: Excuse) {
-        // 1. Add the single new item to your Home screen's local array
         excuses.append(excuse)
+        applySnapshot(animatingDifferences: true)
         
-        // 2. Tell the table to redraw itself with the new data
-        tableView.reloadData()
-        
-        // ExcuseDataStore.shared.saveExcuses(excuses)
-        // 3. Save the entire updated array using your shortcut property 'store'
         do {
             try store.saveExcuses(excuses)
         } catch {
@@ -135,17 +147,11 @@ class ListViewController: UIViewController, UITableViewDataSource, UITableViewDe
         }
     }
 
-    // Called by the form/detail after editing.
     func didUpdateExcuse(_ excuse: Excuse) {
-        // 1. Find the excuse by ID and replace it in your local array
         if let index = excuses.firstIndex(where: { $0.id == excuse.id }) {
-            excuses[index] = excuse  // replace old struct with new one
+            excuses[index] = excuse
+            applySnapshot(animatingDifferences: true)
             
-            // 2. Tell the table to redraw itself
-            tableView.reloadData()
-            
-            // ExcuseDataStore.shared.saveExcuses(excuses)
-            // 3. Save the entire updated array using your shortcut property 'store'
             do {
                 try store.saveExcuses(excuses)
             } catch {
@@ -153,84 +159,38 @@ class ListViewController: UIViewController, UITableViewDataSource, UITableViewDe
             }
         }
     }
+}
 
-    
-    
-    
-    
-    
-    // MARK: - UITableViewDataSource
-    //implement numberOfRowsInSection
-    // Q: "How many rows?"  A: one per excuse
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        excuses.count
-        
-    }
-    
-    //Implement cellForRowAt
-    // Q: "What goes in this row?"  A: a cell filled with that excuse's data
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        // ask the table for a recycled cell of our type
-        guard let cell = tableView.dequeueReusableCell(
-            withIdentifier: ExcuseTableViewCell.identifier,
-            for: indexPath
-        ) as? ExcuseTableViewCell else { //`as?` tries to treat it as an ExcuseTableViewCell; if that fails, return a plain cell
-            return UITableViewCell()
-        }
-
-        // indexPath.row = which row (0, 1, 2...) grab that excuse and show it
-        cell.configure(with: excuses[indexPath.row])
-        return cell
-    }
-    
-    
-    //swipe-to-delete function
-    func tableView(_ tableView: UITableView,
-                   commit editingStyle: UITableViewCell.EditingStyle,
-                   forRowAt indexPath: IndexPath) {
-        if editingStyle == .delete {
-            excuses.remove(at: indexPath.row)                      //remove from the data first
-            tableView.deleteRows(at: [indexPath], with: .fade)     //then remove the row from the screen
-        }
-    }
-    
-    
-    //MARK: - UITableViewDelegate
-    // Called when a row is tapped
-//    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-//        tableView.deselectRow(at: indexPath, animated: true)   // remove the grey highlight
-//        
-//        // 1. Find which excuse was tapped.
-//        let selectedExcuse = excuses[indexPath.row]
-//        
-//        // 2. Create a detail screen and hand it that excuse.
-//        let detailVC = ExcuseDetailViewController(excuse: selectedExcuse)
-//        
-//        // 3. Push it onto the navigation stack (slides in, with a back button for free).
-//        navigationController?.pushViewController(detailVC, animated: true)
-//    }
+// MARK: - UITableViewDelegate Conformance
+extension ListViewController: UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
-        // instantiate the detail screen with your custom initialiser
-        let detailVC = ExcuseDetailViewController(excuse: excuses[indexPath.row])
+        // pull item safely out of the diffable data source instead of basic array math
+        guard let selectedExcuse = dataSource.itemIdentifier(for: indexPath) else { return }
         
-        // tell the detail screen that the Home Screen is listening!
+        let detailVC = ExcuseDetailViewController(excuse: selectedExcuse)
         detailVC.delegate = self
-        
-        // push it onto your programmatic navigation stack
         navigationController?.pushViewController(detailVC, animated: true)
     }
     
     
+    // swipe to delete
+    
+    func tableView(_ tableView: UITableView,
+                   trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath)
+    -> UISwipeActionsConfiguration? {
+        guard let item = dataSource.itemIdentifier(for: indexPath) else { return nil }
+
+        let delete = UIContextualAction(style: .destructive, title: "Delete") { _,_,done in
+            self.excuses.removeAll { $0.id == item.id }
+            try? self.store.saveExcuses(self.excuses)
+            self.applySnapshot()
+            done(true)
+        }
+
+        return UISwipeActionsConfiguration(actions: [delete])
+    }
 }
 
-#Preview {
-    UINavigationController(rootViewController: ListViewController())
-}
-
-//
-//#Preview {
-//    ListViewController()
-//}
